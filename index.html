@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>雑学パレット - 介護レク用スピーチメーカー</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #f97316; /* Default Orange */
+            --secondary-color: #fff7ed;
+            --accent-color: #fb923c;
+        }
+        body {
+            font-family: 'Zen Maru Gothic', sans-serif;
+            background-color: #f8fafc;
+            overflow-x: hidden;
+            transition: background-color 0.5s ease;
+        }
+        
+        /* 動的カラー適用クラス */
+        .theme-text { color: var(--primary-color); }
+        .theme-bg { background-color: var(--primary-color); }
+        .theme-bg-light { background-color: var(--secondary-color); }
+        .theme-border { border-color: var(--primary-color); }
+        .theme-ring:focus-within { ring-color: var(--primary-color); }
+        .theme-hover:hover { background-color: var(--accent-color); }
+
+        /* アニメーション */
+        .fade-in { animation: fadeIn 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        /* 背景の浮遊アイコン */
+        .floating-emoji {
+            position: fixed;
+            z-index: -1;
+            font-size: 3rem;
+            opacity: 0.15;
+            animation: float 20s infinite linear;
+            user-select: none;
+            pointer-events: none;
+        }
+        @keyframes float {
+            0% { transform: translateY(110vh) rotate(0deg); }
+            100% { transform: translateY(-10vh) rotate(360deg); }
+        }
+
+        /* ガラスモーフィズム */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+
+        /* スピナー */
+        .loading-spinner {
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top: 3px solid white;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+        .text-spinner {
+            border: 2px solid rgba(0,0,0,0.1);
+            border-radius: 50%;
+            border-top: 2px solid currentColor;
+            width: 16px;
+            height: 16px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* カスタムスクロールバー */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="min-h-screen text-slate-700 pb-20">
+
+    <!-- 背景アニメーションコンテナ -->
+    <div id="backgroundEmojis"></div>
+
+    <div class="max-w-3xl mx-auto px-4 py-8 md:py-12 relative z-10">
+        
+        <!-- ヘッダー -->
+        <header class="text-center space-y-4 mb-10">
+            <div id="headerIconContainer" class="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-white shadow-xl mb-2 transition-transform hover:scale-105 duration-300">
+                <span id="headerEmoji" class="text-4xl">🎨</span>
+            </div>
+            <div>
+                <h1 class="text-3xl md:text-4xl font-bold tracking-tight text-slate-800 mb-2">雑学パレット</h1>
+                <p class="text-slate-500 font-medium">今日の話題、AIと一緒に彩りましょう。</p>
+            </div>
+        </header>
+
+        <!-- 入力エリア -->
+        <div class="glass-panel rounded-3xl shadow-xl p-2 mb-8 transition-all duration-500 hover:shadow-2xl">
+            <div class="bg-white/50 rounded-2xl p-6 border border-white/50">
+                <label class="block text-sm font-bold text-slate-400 mb-2 ml-1">今日のテーマは何ですか？</label>
+                <div class="flex flex-col md:flex-row gap-3">
+                    <input
+                        type="text"
+                        id="themeInput"
+                        placeholder="例：桜、珈琲、昭和の遊び..."
+                        class="flex-1 px-5 py-4 text-lg bg-white border-2 border-slate-100 rounded-xl focus:outline-none focus:border-[var(--primary-color)] transition-colors shadow-inner"
+                    />
+                    <button
+                        id="generateBtn"
+                        class="theme-bg text-white px-8 py-4 rounded-xl font-bold shadow-lg shadow-orange-200/50 hover:shadow-xl hover:translate-y-[-2px] active:translate-y-[0px] transition-all flex items-center justify-center gap-2 min-w-[160px]"
+                    >
+                        <span id="btnIcon"><i data-lucide="sparkles" class="w-5 h-5"></i></span>
+                        <div id="btnSpinner" class="loading-spinner hidden"></div>
+                        <span id="btnText">ネタを作る</span>
+                    </button>
+                </div>
+                <p class="mt-3 text-xs text-slate-400 flex items-center gap-1 ml-1">
+                    <i data-lucide="info" class="w-3 h-3"></i> 30秒ほどで、お話とクイズを作成します
+                </p>
+            </div>
+        </div>
+
+        <!-- エラーメッセージ -->
+        <div id="errorArea" class="hidden glass-panel border-l-4 border-red-400 p-4 rounded-xl flex items-start gap-3 mb-6 mx-2 animate-pulse">
+            <i data-lucide="alert-circle" class="text-red-400 shrink-0 mt-0.5 w-5 h-5"></i>
+            <p id="errorText" class="text-slate-600 font-medium"></p>
+        </div>
+
+        <!-- 結果表示エリア -->
+        <div id="resultArea" class="hidden space-y-8">
+            
+            <!-- メインコンテンツ -->
+            <div class="space-y-6">
+                
+                <!-- タイトルカード -->
+                <div class="text-center py-6 animate-in slide-in-from-bottom-4 fade-in duration-500">
+                    <div class="inline-block px-4 py-1 rounded-full theme-bg-light theme-text text-sm font-bold mb-3 border border-[var(--primary-color)]/20">
+                        Today's Topic
+                    </div>
+                    <h2 id="speechTitle" class="text-3xl font-bold text-slate-800 leading-relaxed"></h2>
+                </div>
+
+                <!-- 導入 -->
+                <section class="glass-panel rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300 fade-in" style="animation-delay: 0.1s;">
+                    <div class="theme-bg-light px-6 py-4 flex justify-between items-center border-b border-[var(--primary-color)]/10">
+                        <h3 class="font-bold theme-text flex items-center gap-2 text-lg">
+                            <span class="text-2xl">👋</span> はじめに
+                        </h3>
+                        <div class="flex items-center gap-3">
+                            <span id="introDuration" class="text-xs bg-white/80 px-2 py-1 rounded-md text-slate-500 font-medium">1分</span>
+                            <button onclick="playSection('intro')" id="btn-intro" class="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center theme-text hover:scale-110 transition-transform">
+                                <i data-lucide="volume-2" class="w-5 h-5"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="introText" class="p-6 md:p-8 text-lg leading-loose text-slate-700 whitespace-pre-wrap"></div>
+                </section>
+
+                <!-- 本論コンテナ -->
+                <div id="mainPointsContainer" class="space-y-6"></div>
+
+                <!-- 結論 -->
+                <section class="glass-panel rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300 fade-in" style="animation-delay: 0.5s;">
+                    <div class="theme-bg-light px-6 py-4 flex justify-between items-center border-b border-[var(--primary-color)]/10">
+                        <h3 class="font-bold theme-text flex items-center gap-2 text-lg">
+                            <span class="text-2xl">🎁</span> まとめ
+                        </h3>
+                        <div class="flex items-center gap-3">
+                            <span id="conclusionDuration" class="text-xs bg-white/80 px-2 py-1 rounded-md text-slate-500 font-medium">1分</span>
+                            <button onclick="playSection('conclusion')" id="btn-conclusion" class="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center theme-text hover:scale-110 transition-transform">
+                                <i data-lucide="volume-2" class="w-5 h-5"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="conclusionText" class="p-6 md:p-8 text-lg leading-loose text-slate-700 whitespace-pre-wrap"></div>
+                </section>
+
+                <!-- 情報源 -->
+                <div class="mt-12 pt-8 border-t border-slate-200/60 text-center fade-in" style="animation-delay: 0.6s;">
+                    <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Sources / References</h4>
+                    <ul id="referencesList" class="inline-block text-left space-y-1"></ul>
+                    <p class="text-[10px] text-slate-400 mt-6">
+                        ※AI生成コンテンツです。正確性を期すため、重要な事実は一次情報をご確認ください。
+                    </p>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // APIキーの設定
+        const apiKey = ""; // 実行環境で自動的にAPIキーが提供されます
+
+        // 状態管理
+        let speechData = null;
+        let currentAudio = null;
+        let currentlyPlayingId = null;
+        const audioCache = {};
+
+        // DOM要素
+        const elements = {
+            themeInput: document.getElementById('themeInput'),
+            generateBtn: document.getElementById('generateBtn'),
+            btnIcon: document.getElementById('btnIcon'),
+            btnSpinner: document.getElementById('btnSpinner'),
+            btnText: document.getElementById('btnText'),
+            errorArea: document.getElementById('errorArea'),
+            errorText: document.getElementById('errorText'),
+            resultArea: document.getElementById('resultArea'),
+            headerEmoji: document.getElementById('headerEmoji'),
+            backgroundEmojis: document.getElementById('backgroundEmojis'),
+            headerIconContainer: document.getElementById('headerIconContainer')
+        };
+
+        // 初期化
+        lucide.createIcons();
+        generateBackgroundEmojis(['🎨', '✨', '💭']); // 初期背景
+
+        // イベントリスナー
+        elements.generateBtn.addEventListener('click', generateSpeech);
+        elements.themeInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') generateSpeech();
+        });
+
+        // --- メイン機能: スピーチ生成 ---
+        async function generateSpeech() {
+            const theme = elements.themeInput.value.trim();
+            if (!theme) return;
+
+            setLoading(true);
+            setError(null);
+            stopAudio();
+            
+            // キャッシュクリア
+            for (const key in audioCache) delete audioCache[key];
+
+            elements.resultArea.classList.add('hidden');
+
+            try {
+                const systemPrompt = `
+                    あなたは「介護施設」で働く職員のための、知的で優しいアシスタントです。
+                    ユーザーが入力したテーマに基づき、5分程度のスピーチ原稿と、場を盛り上げるクイズ、そして**UIを彩るデザイン情報**を作成してください。
+
+                    【ターゲット】
+                    高齢の利用者様。分かりやすく、温かみのある丁寧語（です・ます）を使用。
+
+                    【必須要件】
+                    1. **デザイン情報の生成**: テーマに合った「メインカラー（カラーコード）」と「絵文字（5つ程度）」を選んでください。
+                    2. **内容の構成**:
+                       - **まずクイズから始める**: 各ポイントの導入として、利用者の興味を惹くようなクイズを先に出題します。
+                       - **その後に解説**: クイズの答え合わせを兼ねて、「へぇ〜」となる雑学（事実＋根拠）を説明します。
+                       - 難しい言葉は避け、漢字にはふりがな（例：薔薇（ばら））。
+                       - 曖昧な表現（たぶん）は禁止。
+
+                    【出力JSON形式】
+                    {
+                        "theme_design": {
+                            "primary_color": "#HEXCODE", 
+                            "secondary_color": "#HEXCODE (Primaryより極めて薄い色)",
+                            "main_emoji": "テーマを象徴する1文字",
+                            "pattern_emojis": ["絵文字1", "絵文字2", "絵文字3", "絵文字4"]
+                        },
+                        "title": "スピーチタイトル",
+                        "introduction": { "text": "導入文", "duration_hint": "1分" },
+                        "main_points": [
+                            { 
+                                "heading": "見出し", 
+                                "text": "本文（クイズの答え合わせと詳細な解説）", 
+                                "logic": "根拠",
+                                "quiz": {
+                                    "question": "導入となるクイズの問題文",
+                                    "options": ["選択肢1", "選択肢2"],
+                                    "answer": "正解",
+                                    "explanation": "簡単な正解の一言"
+                                }
+                            }
+                        ],
+                        "conclusion": { "text": "結び", "duration_hint": "1分" },
+                        "references": ["出典1"]
+                    }
+                `;
+
+                const userPrompt = `テーマ：「${theme}」について、高齢者が楽しめて、UIもおしゃれになるようなデータを生成してください。`;
+
+                const responseText = await callGeminiAPI(systemPrompt, userPrompt);
+                let cleanJson = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+                speechData = JSON.parse(cleanJson);
+                
+                // デザインの適用
+                applyThemeDesign(speechData.theme_design);
+                
+                // コンテンツのレンダリング
+                renderSpeechData(speechData);
+                
+                elements.resultArea.classList.remove('hidden');
+                
+                // アイコン再生成
+                lucide.createIcons();
+
+            } catch (err) {
+                console.error(err);
+                setError("申し訳ありません。生成中にエラーが発生しました。別のテーマで試してみてください。");
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        // --- デザイン適用ロジック ---
+        function applyThemeDesign(design) {
+            if (!design) return;
+
+            // CSS変数の更新
+            const root = document.documentElement;
+            root.style.setProperty('--primary-color', design.primary_color);
+            root.style.setProperty('--secondary-color', design.secondary_color);
+            // アクセントカラーはプライマリを少し暗く/鮮やかにしたもの（簡易的にプライマリと同じに設定）
+            root.style.setProperty('--accent-color', design.primary_color);
+
+            // ヘッダーアイコンの更新
+            elements.headerEmoji.textContent = design.main_emoji;
+            elements.headerEmoji.classList.add('animate-bounce');
+            setTimeout(() => elements.headerEmoji.classList.remove('animate-bounce'), 1000);
+
+            // 背景アニメーションの更新
+            generateBackgroundEmojis(design.pattern_emojis);
+        }
+
+        function generateBackgroundEmojis(emojis) {
+            const container = elements.backgroundEmojis;
+            container.innerHTML = ''; // クリア
+            
+            // 画面サイズに応じて個数を調整
+            const count = window.innerWidth < 768 ? 10 : 20;
+
+            for (let i = 0; i < count; i++) {
+                const span = document.createElement('span');
+                span.classList.add('floating-emoji');
+                span.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+                
+                // ランダムな配置とアニメーション設定
+                span.style.left = `${Math.random() * 100}vw`;
+                span.style.animationDuration = `${15 + Math.random() * 20}s`; // 15-35秒
+                span.style.animationDelay = `-${Math.random() * 20}s`; // 開始タイミングをずらす
+                span.style.fontSize = `${2 + Math.random() * 3}rem`;
+                span.style.opacity = `${0.05 + Math.random() * 0.1}`; // かなり薄く
+                
+                container.appendChild(span);
+            }
+        }
+
+        // --- データレンダリング ---
+        function renderSpeechData(data) {
+            document.getElementById('speechTitle').textContent = data.title;
+            
+            // 導入
+            document.getElementById('introDuration').textContent = data.introduction.duration_hint;
+            document.getElementById('introText').textContent = data.introduction.text;
+
+            // 本論
+            const container = document.getElementById('mainPointsContainer');
+            container.innerHTML = '';
+            
+            data.main_points.forEach((point, idx) => {
+                const section = document.createElement('section');
+                section.className = "glass-panel rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300 fade-in";
+                section.style.animationDelay = `${0.2 + (idx * 0.1)}s`;
+
+                // クイズHTML（先に生成）
+                let quizHtml = '';
+                if (point.quiz) {
+                    const optionsHtml = point.quiz.options.map(opt => 
+                        `<li class="bg-white/80 border border-slate-200 rounded-lg px-4 py-3 text-slate-700 font-medium shadow-sm hover:bg-white transition-colors cursor-default">${opt}</li>`
+                    ).join('');
+
+                    quizHtml = `
+                        <div class="mb-6 bg-gradient-to-br from-[var(--secondary-color)] to-white p-6 rounded-2xl border border-[var(--primary-color)]/20 relative overflow-hidden group">
+                            <div class="absolute -right-4 -top-4 text-[var(--primary-color)] opacity-10 text-9xl pointer-events-none group-hover:scale-110 transition-transform">?</div>
+                            
+                            <h4 class="font-bold theme-text flex items-center gap-2 mb-4 text-lg relative z-10">
+                                <i data-lucide="help-circle" class="w-6 h-6"></i>
+                                まずはクイズ！
+                            </h4>
+                            
+                            <p class="font-bold text-slate-800 mb-5 text-xl relative z-10">Q. ${point.quiz.question}</p>
+                            
+                            <ul class="space-y-3 mb-6 relative z-10">
+                                ${optionsHtml}
+                            </ul>
+                            
+                            <div class="relative z-10">
+                                <button onclick="toggleAnswer('quiz-${idx}')" class="bg-white theme-text border theme-border px-6 py-2 rounded-full font-bold shadow-sm hover:shadow-md active:scale-95 transition-all text-sm flex items-center gap-2">
+                                    <span>正解を見る</span>
+                                    <i data-lucide="chevron-down" class="w-4 h-4"></i>
+                                </button>
+                                
+                                <div id="quiz-${idx}-answer" class="hidden mt-4 pt-4 border-t border-[var(--primary-color)]/20 animate-in fade-in slide-in-from-top-2">
+                                    <div class="flex items-center gap-3 mb-2">
+                                        <span class="theme-bg text-white text-xs font-bold px-2 py-1 rounded">ANSWER</span>
+                                        <p class="font-bold theme-text text-xl">${point.quiz.answer}</p>
+                                    </div>
+                                    <p class="text-slate-600 bg-white/60 p-4 rounded-xl text-sm leading-relaxed">
+                                        ${point.quiz.explanation}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                section.innerHTML = `
+                    <div class="theme-bg-light px-6 py-4 flex justify-between items-center border-b border-[var(--primary-color)]/10">
+                        <h3 class="font-bold theme-text flex items-center gap-3 text-lg">
+                            <span class="bg-white w-8 h-8 rounded-full flex items-center justify-center text-sm shadow-sm font-black text-slate-400">${idx + 1}</span>
+                            ${point.heading}
+                        </h3>
+                        <button onclick="playSection('point-${idx}')" id="btn-point-${idx}" class="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center theme-text hover:scale-110 transition-transform">
+                           <i data-lucide="volume-2" class="w-5 h-5"></i>
+                       </button>
+                    </div>
+                    <div class="p-6 md:p-8">
+                        
+                        ${quizHtml}
+
+                        <div id="text-point-${idx}" class="text-slate-700 leading-loose text-lg whitespace-pre-wrap mb-6 border-t pt-6 border-slate-100">${point.text}</div>
+                        
+                        <div class="flex items-start gap-3 bg-slate-50 border border-slate-100 rounded-xl p-4 text-sm text-slate-600">
+                            <span class="text-xl">💡</span>
+                            <div>
+                                <strong class="block mb-1 text-slate-800 font-bold">根拠・理由</strong>
+                                ${point.logic}
+                            </div>
+                        </div>
+
+                    </div>
+                `;
+                container.appendChild(section);
+            });
+
+            // 結論
+            document.getElementById('conclusionDuration').textContent = data.conclusion.duration_hint;
+            document.getElementById('conclusionText').textContent = data.conclusion.text;
+
+            // 情報源
+            const referencesList = document.getElementById('referencesList');
+            referencesList.innerHTML = '';
+            data.references.forEach(ref => {
+                const li = document.createElement('li');
+                li.className = "text-[10px] text-slate-400 flex items-start gap-2";
+                li.innerHTML = `<span class="mt-[2px] w-1 h-1 rounded-full bg-slate-300 shrink-0"></span>${ref}`;
+                referencesList.appendChild(li);
+            });
+        }
+
+        // --- クイズ開閉 ---
+        function toggleAnswer(id) {
+            const el = document.getElementById(`${id}-answer`);
+            el.classList.toggle('hidden');
+        }
+
+        // --- API & Audio Logic (前回と同様) ---
+        async function callGeminiAPI(systemInstruction, userQuery) {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                systemInstruction: { parts: [{ text: systemInstruction }] },
+                generationConfig: { responseMimeType: "application/json" }
+            };
+            const response = await fetchWithRetry(url, payload);
+            return response.candidates[0].content.parts[0].text;
+        }
+
+        async function generateSpeechAudio(text) {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
+            const payload = {
+                contents: [{ parts: [{ text: text }] }],
+                generationConfig: {
+                    responseModalities: ["AUDIO"],
+                    speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Aoede" } } }
+                }
+            };
+            const responseData = await fetchWithRetry(url, payload);
+            if (!responseData.candidates) throw new Error("No audio candidate");
+            const inlineData = responseData.candidates[0].content.parts[0].inlineData;
+            
+            // Sample rate extraction
+            let sampleRate = 24000;
+            const match = inlineData.mimeType.match(/rate=(\d+)/);
+            if (match) sampleRate = parseInt(match[1], 10);
+
+            return { pcmBase64: inlineData.data, sampleRate };
+        }
+
+        async function fetchWithRetry(url, payload) {
+            const delays = [1000, 2000, 4000];
+            for (let i = 0; i < delays.length; i++) {
+                try {
+                    const res = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (!res.ok) throw new Error(await res.text());
+                    return await res.json();
+                } catch (e) {
+                    if (i === delays.length - 1) throw e;
+                    await new Promise(r => setTimeout(r, delays[i]));
+                }
+            }
+        }
+
+        async function playSection(sectionId) {
+            const btn = document.getElementById(`btn-${sectionId}`);
+            if (!btn) return;
+
+            if (currentlyPlayingId === sectionId) {
+                if (currentAudio && !currentAudio.paused) stopAudio();
+                return;
+            }
+            if (currentAudio) stopAudio();
+            if (btn.dataset.state === 'loading') return;
+
+            setButtonState(btn, 'loading');
+            currentlyPlayingId = sectionId;
+
+            try {
+                let audioUrl;
+                if (audioCache[sectionId]) {
+                    audioUrl = audioCache[sectionId];
+                } else {
+                    let text = "";
+                    if (sectionId === 'intro') text = speechData.introduction.text;
+                    else if (sectionId === 'conclusion') text = speechData.conclusion.text;
+                    else if (sectionId.startsWith('point-')) text = speechData.main_points[parseInt(sectionId.split('-')[1])].text;
+
+                    if (!text) throw new Error("No text");
+                    const { pcmBase64, sampleRate } = await generateSpeechAudio(text);
+                    audioUrl = URL.createObjectURL(pcmToWav(pcmBase64, sampleRate));
+                    audioCache[sectionId] = audioUrl;
+                }
+                currentAudio = new Audio(audioUrl);
+                currentAudio.onplay = () => setButtonState(btn, 'playing');
+                currentAudio.onended = () => stopAudio();
+                currentAudio.onerror = () => { alert("再生エラー"); stopAudio(); };
+                await currentAudio.play();
+            } catch (e) {
+                console.error(e);
+                alert("音声生成エラー");
+                stopAudio();
+            }
+        }
+
+        function stopAudio() {
+            if (currentAudio) { currentAudio.pause(); currentAudio.currentTime = 0; }
+            if (currentlyPlayingId) {
+                const btn = document.getElementById(`btn-${currentlyPlayingId}`);
+                if (btn) setButtonState(btn, 'idle');
+                currentlyPlayingId = null;
+            }
+        }
+
+        function setButtonState(btn, state) {
+            btn.innerHTML = '';
+            btn.dataset.state = state;
+            
+            // スタイルリセット
+            btn.className = "w-10 h-10 rounded-full shadow-sm flex items-center justify-center transition-all duration-300 ";
+
+            if (state === 'loading') {
+                btn.innerHTML = '<div class="text-spinner"></div>';
+                btn.classList.add("bg-white", "text-slate-400");
+            } else if (state === 'playing') {
+                btn.innerHTML = '<i data-lucide="square" class="w-4 h-4 fill-current"></i>';
+                btn.classList.add("bg-red-500", "text-white", "animate-pulse"); // 再生中は赤く目立つように
+            } else {
+                btn.innerHTML = '<i data-lucide="volume-2" class="w-5 h-5"></i>';
+                btn.classList.add("bg-white", "theme-text", "hover:scale-110");
+            }
+            lucide.createIcons();
+        }
+
+        function pcmToWav(base64, rate) {
+            const bin = atob(base64);
+            const bytes = new Uint8Array(bin.length);
+            for (let i=0; i<bin.length; i++) bytes[i] = bin.charCodeAt(i);
+            
+            const buffer = new ArrayBuffer(44 + bytes.length);
+            const view = new DataView(buffer);
+            
+            const writeString = (o, s) => { for (let i=0; i<s.length; i++) view.setUint8(o+i, s.charCodeAt(i)); };
+            
+            writeString(0, 'RIFF');
+            view.setUint32(4, 36 + bytes.length, true);
+            writeString(8, 'WAVE');
+            writeString(12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true);
+            view.setUint16(22, 1, true);
+            view.setUint32(24, rate, true);
+            view.setUint32(28, rate * 2, true);
+            view.setUint16(32, 2, true);
+            view.setUint16(34, 16, true);
+            writeString(36, 'data');
+            view.setUint32(40, bytes.length, true);
+            
+            new Uint8Array(buffer).set(bytes, 44);
+            return new Blob([buffer], { type: 'audio/wav' });
+        }
+
+        // --- Helper ---
+        function setLoading(isLoading) {
+            elements.themeInput.disabled = isLoading;
+            elements.generateBtn.disabled = isLoading;
+            if (isLoading) {
+                elements.btnIcon.classList.add('hidden');
+                elements.btnSpinner.classList.remove('hidden');
+                elements.btnText.textContent = "考え中...";
+                elements.headerIconContainer.classList.add('animate-bounce');
+            } else {
+                elements.btnIcon.classList.remove('hidden');
+                elements.btnSpinner.classList.add('hidden');
+                elements.btnText.textContent = "ネタを作る";
+                elements.headerIconContainer.classList.remove('animate-bounce');
+            }
+        }
+        function setError(msg) {
+            if (msg) {
+                elements.errorText.textContent = msg;
+                elements.errorArea.classList.remove('hidden');
+            } else {
+                elements.errorArea.classList.add('hidden');
+            }
+        }
+    </script>
+</body>
+</html>
